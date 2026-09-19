@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#142941"><meta name="description" content="A local maze adventure with 100 levels, scores, and a coin shop. Collect stars and find your way to the flag."><title>Abe’s Maze</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<main>
+  <header><a class="brand" href="index.html"><span class="brand-icon">✦</span> ABE’S <span>MAZE</span></a><button id="openShop" class="shop-toggle" aria-haspopup="dialog">◉ <span id="coins">30</span> coins · Shop</button></header>
+  <section class="intro"><div><p class="eyebrow">READY, EXPLORER?</p><h1>A little lost.<br><span>A lot of adventure.</span></h1><p>Hey player! Collect the stars, then find the flag.</p></div><div class="instructions"><span class="avatar">P</span><div><strong>You’re the explorer.</strong><p>Take your time. You’ve got this.</p></div></div></section>
+  <section class="game-layout" aria-label="Maze game">
+    <div class="board-shell"><div class="board-top"><span><span class="live-dot"></span> <span id="levelLabel">Level 1 / 100</span></span><span id="starCount">★ 0 / 3</span></div><div class="canvas-wrap"><canvas id="maze" width="800" height="800" tabindex="0" aria-label="Maze. Use arrow keys or W A S D to move, collect the stars, and reach the flag."></canvas><div id="win" class="win" hidden><div class="win-card"><span class="big-star">★</span><p class="eyebrow">LEVEL COMPLETE</p><h2>A-maze-ing, player!</h2><p id="winDetails"></p><button id="playAgain" class="primary">Next level <span>↗</span></button></div></div></div><div class="board-bottom"><span><i class="legend-player"></i> You</span><span><b class="gold">★</b> <span id="starGoal">Collect 3 stars</span></span><span>⚑ Find the flag</span></div><p id="mapNote"></p></div>
+    <aside><div class="panel score-panel"><div><span>Score</span><strong id="score">10,000</strong></div><div><span>Level best</span><strong id="bestScore">—</strong></div><p>Fewer steps = more points and coins. Each hint used cuts your score by 20%.</p><p id="scorePenalty"></p><p class="score-note">Best scores use the new hint penalties.</p></div><div class="panel"><p class="eyebrow">100 LEVELS TO EXPLORE</p><h2>Pick your challenge</h2><div class="level-picker"><label for="levelSelect">Choose a level</label><select id="levelSelect"></select><div class="level-nav"><button id="previousLevel" class="secondary" aria-label="Previous level">← Back</button><button id="nextLevel" class="secondary" aria-label="Next level">Next →</button></div><p id="levelDetails"></p></div><button id="newMaze" class="primary">New maze <span>↗</span></button><button id="hint" class="secondary">✧ Give me a hint</button><button id="useChalk" class="secondary">◇ Mark this spot</button><button id="useLantern" class="secondary">☼ Use lantern · −10% score</button><p id="message" class="message" role="status" aria-live="polite">Your next adventure starts with one step.</p></div><div class="controls panel"><div class="control-heading"><h2>Make your move</h2><span id="moves">0 steps</span></div><p>Arrow keys or W A S D.<br>Or tap the buttons below.</p><div class="dpad"><button data-dir="0" aria-label="Move up">↑</button><button data-dir="3" aria-label="Move left">←</button><span>✦</span><button data-dir="1" aria-label="Move right">→</button><button data-dir="2" aria-label="Move down">↓</button></div></div></aside>
+  </section><footer>Abe’s Maze. Built for “just one more maze.” <span>No clock. No rush. Just adventure.</span></footer>
+</main>
+<dialog id="shop" aria-labelledby="shopTitle">
+  <div class="shop-heading"><div><p class="eyebrow">EXPLORER’S SHOP</p><h2 id="shopTitle">Make it your adventure</h2></div><button id="closeShop" class="close-shop" aria-label="Close shop">×</button></div>
+  <p class="shop-balance">Your wallet: <strong id="shopBalance">30 coins</strong></p><p>Earn coins by finishing mazes. Shorter routes earn bigger rewards. You start with 30 coins.</p>
+  <div class="shop-item"><div><strong>Ten-step hint</strong><p>A trail that stays as you move. Each use reduces your score by 20%, stacking with earlier hints. Buying alone has no penalty. Owned: <span id="tickets">0</span></p></div><button id="buyHint" class="secondary">Buy · 10 coins</button></div>
+  <div class="shop-item"><div><strong>Chalk pack · 5 marks</strong><p>Leave a diamond at your current spot for the rest of the maze. No score penalty. Marks owned: <span id="chalkStock">0</span></p></div><button id="buyChalk" class="secondary">Buy · 15 coins</button></div>
+  <div class="shop-item"><div><strong>Explorer lantern</strong><p>See four extra rows and columns for 40 successful moves in a scrolling maze. Each use reduces your score by 10%. Owned: <span id="lanternStock">0</span></p></div><button id="buyLantern" class="secondary">Buy · 25 coins</button></div>
+  <h3>Explorer colors</h3><p>Make your player yours. Colors never change the rules.</p>
+  <div class="skin-grid">
+    <div class="skin-card"><span class="skin-swatch coral">P</span><strong>Coral</strong><button id="skin-coral" class="secondary">Equipped</button></div>
+    <div class="skin-card"><span class="skin-swatch ocean">P</span><strong>Ocean blue</strong><button id="skin-ocean" class="secondary">40 coins</button></div>
+    <div class="skin-card"><span class="skin-swatch gold-skin">P</span><strong>Golden explorer</strong><button id="skin-gold" class="secondary">75 coins</button></div>
+    <div class="skin-card"><span class="skin-swatch mint">P</span><strong>Mint green</strong><button id="skin-mint" class="secondary">40 coins</button></div>
+<div class="skin-card"><span class="skin-swatch violet">P</span><strong>Violet</strong><button id="skin-violet" class="secondary">100 coins</button></div>
+<div class="skin-card"><span class="skin-swatch ruby">P</span><strong>Ruby</strong><button id="skin-ruby" class="secondary">150 coins</button></div>
+<div class="skin-card"><span class="skin-swatch ice">P</span><strong>Ice crystal</strong><button id="skin-ice" class="secondary">250 coins</button></div>
+  </div>
+  <h3>Maze themes</h3><p>Permanent scenery changes. No score penalty.</p><div class="skin-grid">
+<div class="skin-card"><span class="theme-swatch meadow"></span><strong>Meadow</strong><button id="gear-meadow" class="secondary">Free</button></div>
+<div class="skin-card"><span class="theme-swatch midnight"></span><strong>Midnight maze</strong><button id="gear-midnight" class="secondary">120 coins</button></div>
+<div class="skin-card"><span class="theme-swatch desert"></span><strong>Desert maze</strong><button id="gear-desert" class="secondary">180 coins</button></div>
+<div class="skin-card"><span class="theme-swatch glacier"></span><strong>Glacier maze</strong><button id="gear-glacier" class="secondary">240 coins</button></div>
+  </div><h3>Player symbols</h3><p>Mix any symbol, color, and theme. Keep every purchase.</p><div class="skin-grid">
+<div class="skin-card"><span class="skin-swatch coral">P</span><strong>Classic P</strong><button id="gear-letter" class="secondary">Free</button></div>
+<div class="skin-card"><span class="skin-swatch coral">✦</span><strong>Spark</strong><button id="gear-spark" class="secondary">80 coins</button></div>
+<div class="skin-card"><span class="skin-swatch coral">◆</span><strong>Diamond</strong><button id="gear-diamond" class="secondary">160 coins</button></div>
+<div class="skin-card"><span class="skin-swatch coral">∞</span><strong>Infinity</strong><button id="gear-infinity" class="secondary">300 coins</button></div>
+  </div>
+  <p id="shopMessage" role="status" aria-live="polite"></p><p id="storageNote"></p>
+</dialog><script src="game.js"></script>
+</body></html>
