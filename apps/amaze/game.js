@@ -82,17 +82,21 @@ const MazeCore = (() => {
 if(typeof module!=='undefined') module.exports=MazeCore;
 if(typeof document!=='undefined') (()=>{
   const $=id=>document.getElementById(id), canvas=$('maze'), ctx=canvas.getContext('2d');
+  const {t,number}=MazeI18n;
+  let preferenceStorage;
+  try{preferenceStorage=globalThis.localStorage;}catch{/* Language selection also works without storage access. */}
+  MazeI18n.initialize(preferenceStorage, globalThis.navigator?.languages || [globalThis.navigator?.language]);
   const SAVE_KEY='abes-maze-v1', HINT_PRICE=10;
-  const skins={coral:{name:'Coral',color:'#f19b80',price:0},ocean:{name:'Ocean blue',color:'#80d7ff',price:40},gold:{name:'Golden explorer',color:'#ffd477',price:75},mint:{name:'Mint green',color:'#a5efae',price:40},violet:{name:'Violet',color:'#ceadff',price:100},ruby:{name:'Ruby',color:'#ff819e',price:150},ice:{name:'Ice crystal',color:'#e0ffff',price:250}};
+  const skins={coral:{color:'#f19b80',price:0},ocean:{color:'#80d7ff',price:40},gold:{color:'#ffd477',price:75},mint:{color:'#a5efae',price:40},violet:{color:'#ceadff',price:100},ruby:{color:'#ff819e',price:150},ice:{color:'#e0ffff',price:250}};
   const gear={
-    meadow:{name:'Meadow',kind:'theme',price:0,floor:'#e5eddb',wall:'#264957'},
-    midnight:{name:'Midnight maze',kind:'theme',price:120,floor:'#15263d',wall:'#89aec9'},
-    desert:{name:'Desert maze',kind:'theme',price:180,floor:'#f8dfaf',wall:'#865634'},
-    glacier:{name:'Glacier maze',kind:'theme',price:240,floor:'#d7f6fc',wall:'#386c9c'},
-    letter:{name:'Classic P',kind:'symbol',price:0,symbol:'P'},
-    spark:{name:'Spark',kind:'symbol',price:80,symbol:'✦'},
-    diamond:{name:'Diamond',kind:'symbol',price:160,symbol:'◆'},
-    infinity:{name:'Infinity',kind:'symbol',price:300,symbol:'∞'}
+    meadow:{kind:'theme',price:0,floor:'#e5eddb',wall:'#264957'},
+    midnight:{kind:'theme',price:120,floor:'#15263d',wall:'#89aec9'},
+    desert:{kind:'theme',price:180,floor:'#f8dfaf',wall:'#865634'},
+    glacier:{kind:'theme',price:240,floor:'#d7f6fc',wall:'#386c9c'},
+    letter:{kind:'symbol',price:0,symbol:'P'},
+    spark:{kind:'symbol',price:80,symbol:'✦'},
+    diamond:{kind:'symbol',price:160,symbol:'◆'},
+    infinity:{kind:'symbol',price:300,symbol:'∞'}
   };
   let wallet={coins:30,tickets:0,chalk:0,lanterns:0,lastLevel:1,owned:['coral'],skin:'coral',gear:['meadow','letter'],theme:'meadow',symbol:'letter',bests:{},bestsV2:{}},storageOK=true;
   try{
@@ -114,9 +118,46 @@ if(typeof document!=='undefined') (()=>{
   function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(wallet));}catch{storageOK=false;}}
   let level=1,variant=0,config,n,cells,exit,player=0,stars=[],collected,visited,steps=0,minimum=0,won=false,hintPath=[];
   let renderX=0,renderY=0,animation=null,frame=0,generation=0;
+  let history=[];
   let hintsUsed=0,lanternsUsed=0,lanternSteps=0,marks=new Set();
+  // Retain keys and raw values so active announcements can be translated again.
+  const messages={};
+  const count=(kind,value)=>t('count.'+kind,{count:value});
+  function renderMessage({key,values}){
+    const translated=Object.fromEntries(Object.entries(values).map(([name,value])=>{
+      if(value&&typeof value==='object')return [name,value.key?t(value.key):count(value.kind,value.count)];
+      return [name,value];
+    }));
+    return t(key,translated);
+  }
+  function refreshMessage(id){
+    const text=renderMessage(messages[id]);
+    // Avoid re-announcing an unchanged live region on every move or shop update.
+    if($(id).textContent!==text)$(id).textContent=text;
+  }
+  function message(id,key,values={}){messages[id]={key,values};refreshMessage(id);}
   const currentScore=()=>MazeCore.scoreFor(steps,minimum,hintsUsed,lanternsUsed);
   const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  let audioContext;
+  function prepareAudio(){
+    try{
+      const Audio=window.AudioContext||window.webkitAudioContext;
+      if(!audioContext&&Audio)audioContext=new Audio();
+      if(audioContext?.state==='suspended')audioContext.resume().catch(()=>{});
+    }catch{/* Sound is optional when browser audio is unavailable. */}
+  }
+  function starDing(){
+    try{
+      if(!audioContext||audioContext.state!=='running')return;
+      const tone=audioContext.createOscillator(),volume=audioContext.createGain(),now=audioContext.currentTime;
+      tone.type='sine';tone.frequency.setValueAtTime(1046.5,now);
+      volume.gain.setValueAtTime(0,now);volume.gain.linearRampToValueAtTime(.18,now+.008);
+      volume.gain.exponentialRampToValueAtTime(.001,now+.45);
+      tone.connect(volume);volume.connect(audioContext.destination);
+      tone.onended=()=>{tone.disconnect();volume.disconnect();};
+      tone.start(now);tone.stop(now+.46);
+    }catch{/* Audio failures must not interrupt a move. */}
+  }
   function stopMotion(){
     generation++;
     if(frame)cancelAnimationFrame(frame);
@@ -128,41 +169,60 @@ if(typeof document!=='undefined') (()=>{
     stopMotion();config=nextConfig;level=nextLevel;variant=newVariant;
     ({n,cells,exit,stars}=config);minimum=MazeCore.minimumSteps(cells,n,stars,exit);
     player=0;renderX=0;renderY=0;steps=0;won=false;hintPath=[];collected=new Set();visited=new Set([0]);
-    hintsUsed=0;lanternsUsed=0;lanternSteps=0;marks=new Set();
-    $('win').hidden=true;$('levelLabel').textContent='Level '+level+' / 100';$('levelSelect').value=String(level);
+    history=[];hintsUsed=0;lanternsUsed=0;lanternSteps=0;marks=new Set();
+    $('win').hidden=true;$('levelSelect').value=String(level);
     $('previousLevel').disabled=level===1;$('nextLevel').disabled=level===100;
-    $('starGoal').textContent='Collect '+stars.length+' stars';
-    $('levelDetails').textContent=n+' × '+n+' maze · '+stars.length+' stars. '+(level===100?'The final quest: a small view and no breadcrumbs.':level>=80?'No breadcrumbs. Remember your turns!':n>config.view?'The view follows you as you explore.':'Follow your breadcrumbs and find the shortest route.');
-    $('mapNote').textContent=n>config.view?'Your view follows you. Explore beyond the edges to find every star.':'The whole maze is yours to explore.';
-    $('message').textContent='Collect all '+stars.length+' stars, then head to the flag.';
+    message('message','message.start',{stars:{kind:'stars',count:stars.length}});
+    renderLevel();
     wallet.lastLevel=level;save();
     update();
   }
+  function renderLevel(){
+    $('levelLabel').textContent=t('level.label',{level});
+    $('starGoal').textContent=t('stars.collect',{count:stars.length});
+    const note=level===100?'level.finalNote':level>=80?'level.noTrail':n>config.view?'level.follow':'level.trail';
+    $('levelDetails').textContent=t('level.details',{size:n,stars:count('stars',stars.length),note:t(note)});
+    $('mapNote').textContent=t(n>config.view?'map.partial':'map.full');
+    for(const option of $('levelSelect').children){const value=Number(option.value);option.textContent=t(value===100?'level.finalOption':'level.option',{level:value});}
+  }
+  function renderWin(){
+    const score=currentScore(),reward=10+Math.ceil(level/5)+Math.floor(score/500);
+    $('winTitle').textContent=t(score===10000?'win.perfect':'win.normal');
+    $('winDetails').textContent=t('win.details',{
+      heading:t(level===100?'win.final':'win.level',{level}),steps:count('steps',steps),points:count('points',score),coins:count('coins',reward),
+      supplies:t('win.supplies',{hints:hintsUsed,lanterns:lanternsUsed}),minimum:count('steps',minimum)
+    });
+    $('playAgain').textContent=t(level===100?'win.replay':'win.advance',{level:level+1});
+  }
   function update(){
-    $('starCount').textContent='★ '+collected.size+' / '+stars.length;
-    $('moves').textContent=steps+' '+(steps===1?'step':'steps');
-    $('score').textContent=currentScore().toLocaleString();
-    $('bestScore').textContent=wallet.bestsV2[level]?wallet.bestsV2[level].toLocaleString():'—';
-    $('scorePenalty').textContent=hintsUsed+' hints · '+lanternsUsed+' lanterns · '+Math.round((1-Math.pow(.8,hintsUsed)*Math.pow(.9,lanternsUsed))*100)+'% score reduction';
+    for(const id of Object.keys(messages))refreshMessage(id);
+    if(won)renderWin();
+    $('starCount').textContent='★ '+number(collected.size)+' / '+number(stars.length);
+    $('moves').textContent=count('steps',steps);
+    $('score').textContent=number(currentScore());
+    $('bestScore').textContent=wallet.bestsV2[level]?number(wallet.bestsV2[level]):'—';
+    $('scorePenalty').textContent=t('score.penalty',{hints:count('hints',hintsUsed),lanterns:count('lanterns',lanternsUsed),percent:Math.round((1-Math.pow(.8,hintsUsed)*Math.pow(.9,lanternsUsed))*100)});
+    $('undo').disabled=won||Boolean(animation)||!history.length||wallet.coins<1;
     $('hint').disabled=won||Boolean(animation);
-    $('hint').textContent=wallet.tickets?'✧ Use hint · −20% score':'✧ Buy hints in the shop';
-    $('coins').textContent=wallet.coins;
-    $('shopBalance').textContent=wallet.coins+' coins';
-    $('tickets').textContent=wallet.tickets;
+    $('hint').textContent=t(wallet.tickets?'hint.use':'hint.buy');
+    $('coins').textContent=number(wallet.coins);
+    $('shopCoinLabel').textContent=t('shop.coinSuffix',{count:wallet.coins});
+    $('shopBalance').textContent=count('coins',wallet.coins);
+    $('tickets').textContent=number(wallet.tickets);
     $('buyHint').disabled=wallet.coins<HINT_PRICE;
-    $('chalkStock').textContent=wallet.chalk;$('lanternStock').textContent=wallet.lanterns;
+    $('chalkStock').textContent=number(wallet.chalk);$('lanternStock').textContent=number(wallet.lanterns);
     $('buyChalk').disabled=wallet.coins<15;$('buyLantern').disabled=wallet.coins<25;
-    $('useChalk').textContent='◇ Mark this spot · '+wallet.chalk+' left';
+    $('useChalk').textContent=t('chalk.use',{count:wallet.chalk});
     $('useChalk').disabled=won||Boolean(animation)||!wallet.chalk||marks.has(player);
-    $('useLantern').textContent=lanternSteps?'Lantern · '+lanternSteps+' steps left':'☼ Use lantern · −10% score';
+    $('useLantern').textContent=lanternSteps?t('lantern.active',{count:lanternSteps,steps:count('steps',lanternSteps)}):t('lantern.use');
     $('useLantern').disabled=won||Boolean(animation)||!wallet.lanterns||lanternSteps>0||n<=config.view;
-    $('storageNote').textContent=storageOK?'Coins, purchases, best scores, and your last level save in this browser.':'Browser saving is unavailable. Your coins and purchases last for this session.';
+    $('storageNote').textContent=t(storageOK?'storage.saved':'storage.session');
     for(const key of Object.keys(skins)){
-      const button=$('skin-'+key);button.textContent=wallet.skin===key?'Equipped':wallet.owned.includes(key)?'Equip':skins[key].price+' coins';
+      const button=$('skin-'+key);button.textContent=wallet.skin===key?t('shop.equipped'):wallet.owned.includes(key)?t('shop.equip'):count('coins',skins[key].price);
       button.disabled=wallet.skin===key||(!wallet.owned.includes(key)&&wallet.coins<skins[key].price);
     }
     for(const [key,item] of Object.entries(gear)){
-      const button=$('gear-'+key);button.textContent=wallet[item.kind]===key?'Equipped':wallet.gear.includes(key)?'Equip':item.price+' coins';
+      const button=$('gear-'+key);button.textContent=wallet[item.kind]===key?t('shop.equipped'):wallet.gear.includes(key)?t('shop.equip'):count('coins',item.price);
       button.disabled=wallet[item.kind]===key||(!wallet.gear.includes(key)&&wallet.coins<item.price);
     }
     draw();
@@ -172,35 +232,37 @@ if(typeof document!=='undefined') (()=>{
     const score=currentScore(),reward=10+Math.ceil(level/5)+Math.floor(score/500);
     wallet.coins+=reward;wallet.bestsV2[level]=Math.max(wallet.bestsV2[level]||0,score);save();
     $('win').hidden=false;
-    $('winDetails').textContent=(level===100?'You conquered level 100! ':'Level '+level+' complete! ')+steps+' steps · '+score.toLocaleString()+' points · +'+reward+' coins. '+hintsUsed+' hints and '+lanternsUsed+' lanterns used. Best possible route: '+minimum+' steps.';
-    $('playAgain').textContent=level===100?'Play level 100 again ↗':'On to level '+(level+1)+' ↗';
-    $('message').textContent='Great exploring, player! Your coins are ready to spend.';
+    renderWin();
+    message('message','message.win');
     $('playAgain').focus();
   }
   // Commit one legal tile transition, then animate only that edge. Busy input is
   // discarded, never accumulated into a velocity or a diagonal shortcut.
   function move(d){
-    if(won||animation||$('shop').open)return Promise.resolve(false);
+    if(won||animation||($('shop').open||$('rules').open))return Promise.resolve(false);
+    prepareAudio();
     const next=MazeCore.nextCell(cells,n,player,d);
     if(next===player)return Promise.resolve(false);
     const from=player,toX=next%n,toY=Math.floor(next/n);
-    player=next;steps++;visited.add(player);
+    history.push({from,newVisit:!visited.has(next),newStar:stars.includes(next)&&!collected.has(next)});
+    player=next;steps++;
     const epoch=generation;
     return new Promise(done=>{
       animation={from,to:next,done};
       const complete=()=>{
         if(epoch!==generation)return;
         renderX=toX;renderY=toY;animation=null;frame=0;
+        visited.add(player);
         if(lanternSteps>0)lanternSteps--;
         if(hintPath[1]===player)hintPath=hintPath.slice(1);
         if(hintPath.length===1)hintPath=[];
         if(stars.includes(player)&&!collected.has(player)){
-          collected.add(player);const left=stars.length-collected.size;
-          $('message').textContent=left===0?'All stars collected! Find the flag.':'Nice find, player! '+left+' more '+(left===1?'star':'stars')+' to go.';
+          collected.add(player);starDing();const left=stars.length-collected.size;
+          message('message',left===0?'message.allStars':'message.found',{count:left});
         }
         if(player===exit){
           if(collected.size===stars.length)finish();
-          else $('message').textContent='You found the flag! Grab the other stars first.';
+          else message('message','message.flag');
         }
         update();done(true);
       };
@@ -216,6 +278,16 @@ if(typeof document!=='undefined') (()=>{
       };
       update();frame=requestAnimationFrame(tick);
     });
+  }
+  function undo(){
+    if(won||animation||($('shop').open||$('rules').open)||!history.length||wallet.coins<1)return false;
+    const previous=history.pop();
+    if(previous.newVisit)visited.delete(player);
+    if(previous.newStar)collected.delete(player);
+    player=previous.from;steps--;renderX=player%n;renderY=Math.floor(player/n);
+    wallet.coins--;save();
+    message('message','message.undo');
+    update();return true;
   }
   function draw(){
     if(!config)return;
@@ -256,37 +328,37 @@ if(typeof document!=='undefined') (()=>{
     if(item==='chalk'||item==='lantern'){
       const price=item==='chalk'?15:25;if(wallet.coins<price)return false;
       wallet.coins-=price;wallet[item==='chalk'?'chalk':'lanterns']+=item==='chalk'?5:1;
-      $('shopMessage').textContent=item==='chalk'?'Five chalk marks added. Mark places you want to remember!':'Lantern added. Use it in a scrolling maze for 40 moves of wider vision.';
+      message('shopMessage',item==='chalk'?'shop.addChalk':'shop.addLantern');
     }else if(Object.hasOwn(gear,item)){
       if(!wallet.gear.includes(item)){if(wallet.coins<gear[item].price)return false;wallet.coins-=gear[item].price;wallet.gear.push(item);}
-      wallet[gear[item].kind]=item;$('shopMessage').textContent=gear[item].name+' equipped!';
+      wallet[gear[item].kind]=item;message('shopMessage','shop.itemEquipped',{item:{key:'item.'+item}});
     }else if(item==='hint'){
       if(wallet.coins<HINT_PRICE)return false;
       wallet.coins-=HINT_PRICE;wallet.tickets++;
-      $('shopMessage').textContent='One hint added! Use it to reveal your next ten steps.';
+      message('shopMessage','shop.addHint');
     }else if(Object.hasOwn(skins,item)){
       if(!wallet.owned.includes(item)){
         if(wallet.coins<skins[item].price)return false;
         wallet.coins-=skins[item].price;wallet.owned.push(item);
       }
-      wallet.skin=item;$('shopMessage').textContent=skins[item].name+' equipped!';
+      wallet.skin=item;message('shopMessage','shop.itemEquipped',{item:{key:'item.'+item}});
     }else return false;
     save();update();return true;
   }
   function useSupply(item){
-    if(won||animation||$('shop').open)return false;
+    if(won||animation||($('shop').open||$('rules').open))return false;
     if(item==='chalk'){
       if(!wallet.chalk||marks.has(player))return false;
-      wallet.chalk--;marks.add(player);$('message').textContent='Spot marked for this maze. No score penalty.';
+      wallet.chalk--;marks.add(player);message('message','message.chalk');
     }else if(item==='lantern'){
       if(!wallet.lanterns||lanternSteps||n<=config.view)return false;
-      wallet.lanterns--;lanternsUsed++;lanternSteps=40;$('message').textContent='Wider vision for 40 successful moves. Score reduced by 10%.';
+      wallet.lanterns--;lanternsUsed++;lanternSteps=40;message('message','message.lantern');
     }else return false;
     save();update();return true;
   }
   function hint(){
-    if(won||animation)return false;
-    if(!wallet.tickets){openShop();$('shopMessage').textContent='A ten-step hint costs 10 coins. Earn more coins by finishing mazes.';return false;}
+    if(won||animation||$('rules').open)return false;
+    if(!wallet.tickets){openShop();message('shopMessage','shop.needHint');return false;}
     const goals=stars.filter(i=>!collected.has(i));
     // Continue across nearby stars; only shorten when fewer than ten steps remain to win.
     const route=MazeCore.hintRoute(cells,n,player,goals.length?goals: [exit]);
@@ -296,22 +368,26 @@ if(typeof document!=='undefined') (()=>{
     }
     if(route.length<2)return false;
     wallet.tickets--;hintsUsed++;hintPath=route;save();
-    $('message').textContent='Your next '+(route.length-1)+' steps are marked. Score reduced by 20%. The trail stays until you follow it or replace it.';
+    message('message','message.hint',{count:route.length-1,steps:{kind:'steps',count:route.length-1}});
     update();return true;
   }
   document.addEventListener('keydown',e=>{
-    if(e.target.matches('input,select,textarea')||$('shop').open)return;
+    if(e.target.matches('input,select,textarea')||($('shop').open||$('rules').open))return;
     const d={ArrowUp:0,w:0,ArrowRight:1,d:1,ArrowDown:2,s:2,ArrowLeft:3,a:3}[e.key.length===1?e.key.toLowerCase():e.key];
     if(d!==undefined){e.preventDefault();void move(d);}
   });
   document.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>void move(Number(b.dataset.dir))));
-  for(let i=1;i<=100;i++){const option=document.createElement('option');option.value=String(i);option.textContent='Level '+i+(i===100?' — The final quest':'');$('levelSelect').append(option);}
+  for(let i=1;i<=100;i++){const option=document.createElement('option');option.value=String(i);$('levelSelect').append(option);}
   $('levelSelect').addEventListener('change',e=>start(Number(e.target.value)));
   $('previousLevel').addEventListener('click',()=>{if(level>1)start(level-1);});
   $('nextLevel').addEventListener('click',()=>{if(level<100)start(level+1);});
+  $('restartMaze').addEventListener('click',()=>{if(!won)return;start(level,variant);canvas.focus({preventScroll:true});});
   $('newMaze').addEventListener('click',()=>start(level,variant+1));
   $('playAgain').addEventListener('click',()=>{level===100?start(100,variant+1):start(level+1);canvas.focus({preventScroll:true});});
   $('hint').addEventListener('click',hint);
+  $('undo').addEventListener('click',undo);
+  $('openRules').addEventListener('click',()=>$('rules').showModal());
+  $('closeRules').addEventListener('click',()=>$('rules').close());
   $('openShop').addEventListener('click',openShop);
   $('closeShop').addEventListener('click',()=>$('shop').close());
   $('buyHint').addEventListener('click',()=>purchase('hint'));
@@ -326,6 +402,15 @@ if(typeof document!=='undefined') (()=>{
     if(Math.max(Math.abs(dx),Math.abs(dy))>12)void move(Math.abs(dx)>Math.abs(dy)?(dx>0?1:3):(dy>0?2:0));
   });
   canvas.addEventListener('pointercancel',()=>touch=null);
+  for(const [code,locale] of Object.entries(MazeI18n.locales)){
+    const option=document.createElement('option');option.value=code;option.textContent=locale.name;option.lang=code;$('languageSelect').append(option);
+  }
+  $('languageSelect').value=MazeI18n.locale;
+  $('languageSelect').addEventListener('change',e=>{
+    MazeI18n.remember(e.target.value,preferenceStorage);
+    MazeI18n.render(document);renderLevel();update();
+  });
+  MazeI18n.render(document);
   start(wallet.lastLevel);
   if(document.modelContext?.registerTool){
     const lifecycle=new AbortController();
