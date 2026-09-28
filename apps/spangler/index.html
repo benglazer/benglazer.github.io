@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A clear Spanish verb conjugation cheat sheet for CEFR A1 through B2." />
+    <meta name="theme-color" content="#f8f4ea" />
+    <title>Spangler — Spanish conjugation cheat sheet</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23df573c'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-family='Georgia' font-size='42' fill='white'%3ES%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Spangler home">
+          <span class="brand-mark" aria-hidden="true">S</span>
+          <span>
+            <span class="brand-name">Spangler</span>
+            <span class="brand-subtitle">Spanish, made glanceable</span>
+          </span>
+        </a>
+
+        <div class="topbar-actions">
+          <fieldset class="region-control" id="region-control" aria-describedby="region-tip">
+            <legend class="visually-hidden">Regional forms</legend>
+            <label><input type="radio" name="region" value="latin-america" /><span>Latin America</span></label>
+            <label><input type="radio" name="region" value="spain" /><span>Spain</span></label>
+            <span class="region-tip" id="region-tip" role="tooltip">
+              <span class="region-tip-body">
+                <span><strong>Latin America</strong> hides vosotros/as; ustedes is used for plural “you.”</span>
+                <span><strong>Spain</strong> includes vosotros/as alongside ustedes.</span>
+              </span>
+            </span>
+          </fieldset>
+          <button class="dark-button" id="surprise-button" type="button">
+            <span aria-hidden="true">↝</span>
+            <span class="button-label">Surprise me</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <section class="search-section" aria-labelledby="page-title">
+          <p class="eyebrow">Conjugation cheat sheet · A1–B2</p>
+          <h1 id="page-title">What do you want to say?</h1>
+          <p class="intro">Enter a Spanish infinitive or choose from <span id="verb-count">hundreds of</span> common verbs.</p>
+
+          <form class="search-form" id="verb-form" novalidate>
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <label class="visually-hidden" for="verb-input">Spanish infinitive</label>
+            <input
+              id="verb-input"
+              name="verb"
+              type="search"
+              value="hablar"
+              list="verb-suggestions"
+              spellcheck="false"
+              autocomplete="off"
+              aria-describedby="search-help search-error"
+            />
+            <datalist id="verb-suggestions"></datalist>
+            <button class="search-submit" type="submit">Show verb</button>
+          </form>
+          <p class="search-help" id="search-help">Try an infinitive ending in <strong>-ar</strong>, <strong>-er</strong>, <strong>-ir</strong>, or <strong>-se</strong>.</p>
+          <p class="search-error" id="search-error" role="alert" hidden></p>
+
+          <div class="quick-row" aria-label="Common verbs">
+            <span>Try</span>
+            <button class="quick-verb" type="button" data-verb="ser">ser</button>
+            <button class="quick-verb" type="button" data-verb="estar">estar</button>
+            <button class="quick-verb" type="button" data-verb="tener">tener</button>
+            <button class="quick-verb" type="button" data-verb="hacer">hacer</button>
+            <button class="quick-verb" type="button" data-verb="sentirse">sentirse</button>
+          </div>
+        </section>
+
+        <section id="verb-result" aria-live="polite">
+          <header class="verb-header">
+            <div>
+              <div class="verb-heading-line">
+                <h2 id="verb-name">hablar</h2>
+                <span class="translation" id="verb-translation">to speak / to talk</span>
+              </div>
+              <div class="tags" id="verb-tags"></div>
+            </div>
+            <button class="outline-button" id="pronounce-button" type="button">
+              <span aria-hidden="true">◖</span>
+              Hear it
+            </button>
+          </header>
+
+          <div class="grammar-header">
+            <div class="mood-tabs" id="mood-tabs" role="tablist" aria-label="Grammatical mood"></div>
+            <p>Curriculum scope: <strong>A1 → B2</strong></p>
+          </div>
+
+          <div class="tense-tabs" id="tense-tabs" role="tablist" aria-label="Tense or form"></div>
+
+          <div class="results-layout">
+            <section class="conjugation-panel" aria-labelledby="tense-title">
+              <header class="panel-heading">
+                <div>
+                  <h3 id="tense-title" lang="es">Presente de indicativo</h3>
+                  <p id="tense-description">Present indicative · Used for routines, facts, and current states.</p>
+                </div>
+                <span class="cefr-badge" id="tense-level">A1</span>
+              </header>
+              <div class="conjugation-list" id="conjugation-list"></div>
+            </section>
+
+            <aside class="learning-panel" aria-labelledby="pattern-title">
+              <div>
+                <p class="aside-kicker">Selected form</p>
+                <h3 id="selected-person">yo</h3>
+              </div>
+              <div class="pattern-block">
+                <h4 id="pattern-title">See the pattern</h4>
+                <div class="equation" id="pattern-equation"></div>
+                <p class="pattern-note" id="pattern-note"></p>
+              </div>
+              <div class="example-block">
+                <h4>In context</h4>
+                <blockquote>
+                  <p lang="es" id="example-spanish">Hablo español con mis amigos.</p>
+                  <footer id="example-english">I speak Spanish with my friends.</footer>
+                </blockquote>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <p>CEFR labels are approximate learning guides. Usage varies across the Spanish-speaking world.</p>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
